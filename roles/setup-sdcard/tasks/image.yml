@@ -1,0 +1,35 @@
+---
+
+# Download
+- name: Ensure download directory exists
+  file:
+    path: "{{ raspi_files }}"
+    state: directory
+  tags: ["download-img", "download-all"]
+
+- name: Download raspi image
+  become_user: "{{ machine_user }}"
+  get_url:
+    url: "{{ image_url }}"
+    dest: "{{ image_loc }}"
+    timeout: 6000
+  tags: ["download-img", "download-all"]
+
+- name: Image checksum
+  get_url:
+    url:  "{{ image_loc }}"
+    dest: "{{ image_loc }}"
+    checksum: "sha256:{{ image_sha }}"
+  tags: ["download-img", "download-all"]
+
+- name: Unmount all sdcard partitions
+  mount:
+    path: "{{ sdcard }}?*"
+    state: unmounted
+  tags: ["install-img", "install-all"]
+
+# Installation
+- name: Burn image on sdcard
+  shell: "xzcat {{ image_loc }} | sudo dd of={{ sdcard }} bs=64k oflag=dsync status=progress"
+  tags: ["install-img", "install-all"]
+

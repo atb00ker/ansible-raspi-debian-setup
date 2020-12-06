@@ -1,0 +1,48 @@
+---
+
+# Configurations
+- name: Mount RASPIROOT for configurations
+  mount:
+    path: "{{ mount_path }}"
+    src: LABEL=RASPIROOT
+    fstype: ext4
+    state: mounted
+  tags: ["install-cmd", "install-all"]
+
+- name: Ensure configuration directories exists
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "{{ mount_path }}/etc/systemd/system/getty@tty1.service.d"
+  tags: ["install-cmd", "install-all"]
+
+- name: Copy configuration files
+  become: yes
+  become_user: root
+  template:
+    src:   "{{ item.src  }}"
+    dest:  "{{ item.dest }}"
+    owner: "root"
+    group: "root"
+    mode:  0744
+  with_items:
+    - {
+        src:  "templates/init_boot.j2",
+        dest: "{{ mount_path }}/root/init_boot",
+      }
+    - {
+        src:  "templates/.bashrc.j2",
+        dest: "{{ mount_path }}/root/.bashrc",
+      }
+    - {
+        src:  "templates/override.conf.j2",
+        dest: "{{ mount_path }}/etc/systemd/system/getty@tty1.service.d/override.conf",
+      }
+  tags: ["install-cmd", "install-all"]
+
+- name: Unmount RASPIROOT for configurations
+  mount:
+    path: "{{ mount_path }}"
+    state: absent
+  tags: ["install-cmd", "install-all"]

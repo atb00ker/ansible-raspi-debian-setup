@@ -1,0 +1,91 @@
+---
+
+# Download
+- name: Add arm64 architecture
+  become: true
+  become_user: root
+  command: "dpkg --add-architecture arm64"
+  tags: ["download-pkg", "download-all"]
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 86400
+  tags: ["download-pkg", "download-all"]
+
+- name: Get packages list
+  shell: >
+    download_list=$(apt-cache depends --recurse --no-recommends --no-suggests \
+                                      --no-conflicts --no-breaks --no-replaces --no-enhances \
+                                      --no-pre-depends {{ item }}:arm64 | grep "^\w");
+    echo $download_list;
+  register: "download_packages"
+  with_items: "{{ package_list }}"
+  tags: ["download-pkg", "download-all"]
+
+- name: Ensure .cache directories exists
+  become_user: "{{ machine_user }}"
+  file:
+    path: "{{ raspi_files }}/.cache/{{ item }}-arm64"
+    state: directory
+  with_items: "{{ package_list }}"
+  tags: ["download-pkg", "download-all"]
+
+- name: Ensure directories exists
+  become_user: "{{ machine_user }}"
+  file:
+    path: "{{ raspi_files }}/packages/{{ item }}-arm64"
+    state: directory
+  with_items: "{{ package_list }}"
+  tags: ["download-pkg", "download-all"]
+
+- name: Download packages
+  become_user: "{{ machine_user }}"
+  shell: >
+    cd "{{ raspi_files }}/.cache/{{ item.item }}-arm64";
+    apt download {{ item.stdout }};
+  loop_control:
+    label: "{{ item.item }}"
+  with_items: "{{ download_packages.results }}"
+  tags: ["download-pkg", "download-all"]
+
+- name: Copy packages from .cache
+  become_user: "{{ machine_user }}"
+  copy:
+    src:   "{{ raspi_files }}/.cache/"
+    dest:  "{{ raspi_files }}/packages/"
+    directory_mode: 0755
+  tags: ["download-pkg", "download-all"]
+
+- name: Delete amd64 packages
+  become_user: "{{ machine_user }}"
+  shell: "rm -rf {{ raspi_files }}/packages/{{ item }}-arm64/*amd64.deb"
+  args:
+    warn: false
+  with_items: "{{ package_list }}"
+  tags: ["download-pkg", "download-all"]
+
+# Installation
+- name: Mount RASPIROOT for packages
+  mount:
+    path: "{{ mount_path }}"
+    src: LABEL=RASPIROOT
+    fstype: ext4
+    state: mounted
+  tags: ["install-pkg", "install-all"]
+
+- name: Copy packages to sdcard
+  copy:
+    src:   "{{ raspi_files }}/packages/"
+    dest:  "{{ mount_path }}/home/packages/"
+    owner: "root"
+    group: "root"
+    mode: 0644
+    directory_mode: 0755
+  tags: ["install-pkg", "install-all"]
+
+- name: Unmount RASPIROOT for packages
+  mount:
+    path: "{{ mount_path }}"
+    state: absent
+  tags: ["install-pkg", "install-all"]

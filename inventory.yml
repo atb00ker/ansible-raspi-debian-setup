@@ -1,0 +1,17 @@
+local:
+  hosts:
+    localhost:
+  vars:
+    machine_user: atb00ker
+    raspi: "/home/{{ machine_user }}/Documents/develop/raspi"
+    raspi_files: "{{ raspi }}/files"
+    image_loc: "{{ raspi_files }}/raspi4.img.xz"
+    image_url: https://raspi.debian.net/verified/20201112_raspi_4.img.xz
+    image_sha: 56d6e5c674fb89be07ed160807d0b166cc3713d8c32c47ff61fbc94f39452373
+    mount_path: /tmp/raspiroot
+    sdcard: /dev/sdb # use `lsblk` to get it
+    package_list:
+    - "network-manager"
+    # Ansible Options
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_connection: local
