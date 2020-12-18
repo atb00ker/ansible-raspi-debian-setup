@@ -14,6 +14,7 @@
   tags: ["download-pkg", "download-all"]
 
 - name: Get packages list
+  when: package_list | length > 0
   shell: >
     download_list=$(apt-cache depends --recurse --no-recommends --no-suggests \
                                       --no-conflicts --no-breaks --no-replaces --no-enhances \
@@ -47,6 +48,7 @@
   loop_control:
     label: "{{ item.item }}"
   with_items: "{{ download_packages.results }}"
+  register: pkg_downloaded
   tags: ["download-pkg", "download-all"]
 
 - name: Copy packages from .cache
@@ -55,6 +57,7 @@
     src:   "{{ raspi_files }}/.cache/"
     dest:  "{{ raspi_files }}/packages/"
     directory_mode: 0755
+  when: pkg_downloaded.changed
   tags: ["download-pkg", "download-all"]
 
 - name: Delete amd64 packages
@@ -63,6 +66,7 @@
   args:
     warn: false
   with_items: "{{ package_list }}"
+  when: pkg_downloaded.changed
   tags: ["download-pkg", "download-all"]
 
 # Installation
@@ -75,6 +79,7 @@
   tags: ["install-pkg", "install-all"]
 
 - name: Copy packages to sdcard
+  when: package_list | length > 0
   copy:
     src:   "{{ raspi_files }}/packages/"
     dest:  "{{ mount_path }}/home/packages/"

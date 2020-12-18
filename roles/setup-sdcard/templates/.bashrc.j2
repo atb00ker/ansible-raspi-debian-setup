@@ -1,9 +1,11 @@
 # Functions for initial setup
 
 complete_setup() {
-    install_pkgs
     ssh_setup
     connect_wifi $1
+{% if auto_install_package_on_boot %}
+    install_pkgs
+{% endif %}
 }
 
 install_pkgs() {
@@ -25,16 +27,16 @@ ssh_setup() {
 
 connect_wifi() {
     echo "Connecting to network..."
-    nmcli device wifi rescan
-    sleep 5
-    nmcli device wifi list
-    sleep 2
-    nmcli device wifi connect {{ wifi_ssid }} password $1
+    wpa_passphrase {{ wifi_ssid }} $1 > /etc/wpa_supplicant/wpa_supplicant.conf
+    sed --in-place '/#psk=/d' /etc/wpa_supplicant/wpa_supplicant.conf
+    ip link set wlan0 up
+    wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf
+    dhclient -v wlan0
 }
 
 if [ -f /root/init_boot ]; then
     wifi_pass=$(cat /root/init_boot)
     complete_setup $wifi_pass &> /root/install_complete.log
     rm /root/init_boot
-    shutdown -r now
+    # shutdown -r now
 fi
