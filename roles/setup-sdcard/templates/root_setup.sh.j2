@@ -1,0 +1,93 @@
+#!/bin/bash
+
+on_boot() {
+    connect_wifi
+    first_boot
+    echo ""
+}
+
+first_boot() {
+    complete_setup &>/root/install_complete.log
+    sed '/^    first_boot$/d' --in-place /root/root_setup.sh
+    shutdown -r now
+}
+
+complete_setup() {
+    {% if include_mconf_setup %}
+    mconf_setup_init
+    {% else %}
+    ssh_setup_password_access
+    {% endif %}
+    {% if auto_install_package_on_boot %}
+    install_pkgs
+    {% endif %}
+}
+
+install_pkgs() {
+    echo "Install Packages..."
+    cd /home/packages/
+    for pkg in */; do
+        cd /home/packages/$pkg
+        dpkg --install *.deb
+    done
+}
+
+ssh_setup_password_access() {
+    echo "Setting up ssh..."
+    sed -i -r 's|^.?PermitRootLogin .*|PermitRootLogin yes|' /etc/ssh/sshd_config
+    sed -i -r 's|^.?GSSAPIAuthentication .*|GSSAPIAuthentication yes|' /etc/ssh/sshd_config
+    sed -i 's|session\s*required\s*pam_loginuid.so|session optional pam_loginuid.so|g' /etc/pam.d/sshd
+    echo 'root:root' | chpasswd
+}
+
+connect_wifi() {
+    if [ ! -f /usr/bin/nmcli ]; then
+        op_state=$(cat /sys/class/net/{{ interface }}/operstate)
+        if [ "$op_state" != "up" ]; then
+            echo "Connecting to network..."
+            ip link set {{ interface }} up
+            wpa_supplicant -B -i {{ interface }} -c /etc/wpa_supplicant/wpa_supplicant.conf
+            dhclient -v {{ interface }}
+        fi
+    else
+        read -p "Enter SSID: " ssid
+        nmcli con up $ssid --ask
+        nmcli connection modify $ssid wifi-sec.psk-flags "1"
+    fi
+}
+
+# Post init setup
+post_ssh_setup() {
+    apt update --yes
+    apt install --yes locales
+    locale-gen en_US.UTF-8
+}
+
+disable_auto_wifi_connect() {
+    sed '/^    connect_wifi$/d' --in-place /root/root_setup.sh
+}
+
+{% if include_mconf_setup %}
+mconf_setup() {
+    echo "Running mconf initial setup, don't start it over SSH, it will fail, Ok?"
+    echo "Remember to use 'nmcli d w c --ask' & 'connect_wifi' to connect to a network."
+    echo -n "If nmcli is not available, run 'mconf_setup_init' and reboot."
+    read -n 1
+    post_ssh_setup
+    passwd
+    adduser {{ machine_user }}
+    usermod -aG sudo {{ machine_user }}
+    su {{ machine_user }} -c 'curl -L -s http://bit.do/mconf-raspi4-pub -o /home/{{ machine_user }}/setup.sh'
+    su {{ machine_user }} -c 'bash /home/{{ machine_user }}/setup.sh'
+}
+
+mconf_setup_init() {
+    home_path=$(blkid --label HOME)
+    apt update --yes &&
+        apt install --yes cryptsetup network-manager curl &&
+        rm -rf /etc/wpa_supplicant/wpa_supplicant.conf &&
+        disable_auto_wifi_connect &&
+        echo "chome    $home_path    none    luks" >>/etc/crypttab &&
+        echo "/dev/mapper/chome /home ext4 nodev,nosuid,noatime 0 2" >>/etc/fstab
+}
+{% endif %}

@@ -10,8 +10,11 @@ local:
     image_sha: 56d6e5c674fb89be07ed160807d0b166cc3713d8c32c47ff61fbc94f39452373
     package_list: []
     auto_install_package_on_boot: false
+    include_mconf_setup: true
+    # SD card
     sdcard: /dev/sdb # use `lsblk` to get it
-    mount_path: /tmp/raspiroot
+    mount_firm_path: /tmp/raspifirm
+    mount_root_path: /tmp/raspiroot
     # Ansible Options
     ansible_python_interpreter: /usr/bin/python3
     ansible_connection: local

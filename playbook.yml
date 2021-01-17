@@ -1,18 +1,13 @@
 ---
 
 - hosts: local
-  become: yes
+  become: true
   become_user: root
   vars_prompt:
-  - name: wifi_ssid
-    prompt: WiFi SSID
-    private: no
-  - name: wifi_password
-    prompt: WiFi Password
-  pre_tasks:
-    - name: Update apt cache
-      apt:
-        update_cache: yes
-        cache_valid_time: 86400
+    - name: wifi_ssid
+      prompt: WiFi SSID
+      private: false
+    - name: wifi_password
+      prompt: WiFi Password
   roles:
     - role: setup-sdcard

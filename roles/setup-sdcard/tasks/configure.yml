@@ -1,48 +1,152 @@
 ---
 
-# Configurations
 - name: Mount RASPIROOT for configurations
   mount:
-    path: "{{ mount_path }}"
+    path: "{{ mount_root_path }}"
     src: LABEL=RASPIROOT
     fstype: ext4
     state: mounted
   tags: ["install-cmd", "install-all"]
 
-- name: Ensure configuration directories exists
+- name: Ensure configuration directories exists (root)
   file:
     path: "{{ item }}"
     state: directory
   with_items:
-    - "{{ mount_path }}/etc/systemd/system/getty@tty1.service.d"
+    - "{{ mount_root_path }}/etc/systemd/system/getty@tty1.service.d"
+    - "{{ mount_root_path }}/etc/wpa_supplicant/"
   tags: ["install-cmd", "install-all"]
 
-- name: Copy configuration files
-  become: yes
+- name: Ensure configuration directories exists (non-root)
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ machine_user }}"
+    group: "{{ machine_user }}"
+  with_items:
+    - "{{ mount_root_path }}/invar/images/"
+  tags: ["install-cmd", "install-all"]
+
+- name: Create wpa_supplicant authentication file
+  become_user: root
+  shell: "wpa_passphrase {{ wifi_ssid }} {{ wifi_password }} > /tmp/ansible-wpa_password"
+  tags: ["install-cmd", "install-all"]
+
+- name: Remove wpa_supplicant information
+  lineinfile:
+    path: /tmp/ansible-wpa_password
+    regexp: '#psk='
+    state: absent
+  tags: ["install-cmd", "install-all"]
+
+- name: Remove old hostname
+  file:
+    state: absent
+    path: "{{ mount_root_path }}/etc/hostname"
+  tags: ["install-cmd", "install-all"]
+
+- name: Template configuration files
+  become: true
   become_user: root
   template:
     src:   "{{ item.src  }}"
     dest:  "{{ item.dest }}"
-    owner: "root"
-    group: "root"
+    owner: root
+    group: root
     mode:  0744
+  vars:
+    interface: wlan0
   with_items:
     - {
-        src:  "templates/init_boot.j2",
-        dest: "{{ mount_path }}/root/init_boot",
-      }
-    - {
-        src:  "templates/.bashrc.j2",
-        dest: "{{ mount_path }}/root/.bashrc",
+        src:  "templates/root_setup.sh.j2",
+        dest: "{{ mount_root_path }}/root/root_setup.sh",
       }
     - {
         src:  "templates/override.conf.j2",
-        dest: "{{ mount_path }}/etc/systemd/system/getty@tty1.service.d/override.conf",
+        dest: "{{ mount_root_path }}/etc/systemd/system/getty@tty1.service.d/override.conf",
       }
+    - {
+        src:  "/tmp/ansible-wpa_password",
+        dest: "{{ mount_root_path }}/etc/wpa_supplicant/wpa_supplicant.conf",
+      }
+    - {
+        src:  "templates/hostname.j2",
+        dest: "{{ mount_root_path }}/etc/hostname",
+      }
+  tags: ["install-cmd", "install-all"]
+
+- name: Add setup functions to .bashrc
+  lineinfile:
+    path: "{{ mount_root_path }}/root/.bashrc"
+    line: 'source /root/root_setup.sh; on_boot'
+    state: present
+  tags: ["install-cmd", "install-all"]
+
+- name: Add hostname to /etc/hosts
+  lineinfile:
+    path: "{{ mount_root_path }}/etc/hosts"
+    regexp: '^127\.0\.1\.1'
+    line: '127.0.1.1    raspi'
+    owner: root
+    group: root
+    mode: 0644
+  tags: ["install-cmd", "install-all"]
+
+- name: Add locale information
+  lineinfile:
+    path: "{{ mount_root_path }}{{ item.file }}"
+    line: '{{ item.line }}'
+    owner: root
+    group: root
+    mode: 0644
+    create: true
+    state: present
+  with_items:
+    - {
+        file:  "/etc/environment",
+        line: "LC_ALL=en_US.UTF-8",
+      }
+    - {
+        file:  "/etc/locale.gen",
+        line: "en_US.UTF-8 UTF-8",
+      }
+    - {
+        file:  "/etc/locale.conf",
+        line: "LANG=en_US.UTF-8",
+      }
+  tags: ["install-cmd", "install-all"]
+
+- name: Remove sensitive auth_information
+  file:
+    path: /tmp/ansible-wpa_password
+    state: absent
+  tags: ["install-cmd", "install-all"]
+
+- name: Copy background images
+  copy:
+    src: "/invar/images/desktop-wallpapers"
+    dest:  "{{ mount_root_path }}/invar/images/desktop-wallpapers"
+    owner: "{{ machine_user }}"
+    group: "{{ machine_user }}"
+    remote_src: true
+    directory_mode: 0755
+  ignore_errors: true
+  when: include_mconf_setup
+  tags: ["install-cmd", "install-all"]
+
+- name: Copy lockscreen image images
+  copy:
+    src: "/invar/images/desktop-wallpapers/raspi-lockscreen-wallpaper.png"
+    dest:  "{{ mount_root_path }}/invar/images/lockscreen-wallpaper.png"
+    owner: "{{ machine_user }}"
+    group: "{{ machine_user }}"
+    remote_src: true
+  ignore_errors: true
+  when: include_mconf_setup
   tags: ["install-cmd", "install-all"]
 
 - name: Unmount RASPIROOT for configurations
   mount:
-    path: "{{ mount_path }}"
+    path: "{{ mount_root_path }}"
     state: absent
   tags: ["install-cmd", "install-all"]

@@ -1,8 +1,10 @@
 # Ansible Raspberry Pi Debian Image Custom Setup
 
-Ansible script for creating raspi sdcard
+Ansible scripts for setting up my raspberry instances.
 
-### Setup sdcard
+1. setup-sdcard: Download raspberry image and prepare sdcard for boot.
+
+## setup-sdcard
 
 1. Configure: `inventory.yml`
 2. Run: `ansible-playbook -i inventory.yml playbook.yml -K`
@@ -15,3 +17,4 @@ Ansible script for creating raspi sdcard
  - install-pkg  : Add additional packages to `/home/` in sdcard
  - install-cmd  : Install script in sd card to setup SSH, install packages and connect to Wifi
  - install-all  : Perform all install operations
+ - partition    : Create empty partitions

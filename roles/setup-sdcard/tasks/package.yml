@@ -9,7 +9,7 @@
 
 - name: Update apt cache
   apt:
-    update_cache: yes
+    update_cache: true
     cache_valid_time: 86400
   tags: ["download-pkg", "download-all"]
 
@@ -72,7 +72,7 @@
 # Installation
 - name: Mount RASPIROOT for packages
   mount:
-    path: "{{ mount_path }}"
+    path: "{{ mount_root_path }}"
     src: LABEL=RASPIROOT
     fstype: ext4
     state: mounted
@@ -82,7 +82,7 @@
   when: package_list | length > 0
   copy:
     src:   "{{ raspi_files }}/packages/"
-    dest:  "{{ mount_path }}/home/packages/"
+    dest:  "{{ mount_root_path }}/home/packages/"
     owner: "root"
     group: "root"
     mode: 0644
@@ -91,6 +91,6 @@
 
 - name: Unmount RASPIROOT for packages
   mount:
-    path: "{{ mount_path }}"
+    path: "{{ mount_root_path }}"
     state: absent
   tags: ["install-pkg", "install-all"]

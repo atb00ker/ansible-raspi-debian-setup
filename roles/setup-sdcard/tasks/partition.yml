@@ -1,0 +1,39 @@
+---
+
+- name: Add /home partition
+  parted:
+    device: "{{ sdcard }}"
+    number: 3
+    part_type: primary
+    state: present
+    part_start: 12GB
+  tags: ["partition"]
+
+- name: Encrypt parition
+  pause:
+    prompt: |
+      Manually encrypt the partition created for home.
+      1. cryptsetup -h sha256 -c aes-xts-plain64 -s 512 luksFormat {{ sdcard }}3
+      2. cryptsetup config {{ sdcard }}3 --label HOME
+      3. cryptsetup luksOpen {{ sdcard }}3 chome
+  tags: ["partition"]
+
+- name: Read it Again
+  pause:
+    prompt: |
+      Did you read that?
+      Did you do it?
+      Really?
+  tags: ["partition"]
+
+- name: Create a ext4 filesystem for home
+  filesystem:
+    fstype: ext4
+    dev: "/dev/mapper/chome"
+  tags: ["partition"]
+
+- name: luksClose HOME
+  luks_device:
+    state: "closed"
+    name: "chome"
+  tags: ["partition"]

@@ -3,3 +3,12 @@
 - import_tasks: image.yml
 - import_tasks: package.yml
 - import_tasks: configure.yml
+- import_tasks: partition.yml
+  when: include_mconf_setup
+
+- name: Execution completed.
+  pause:
+    prompt: |
+      Use the following commands on Raspberry Pi as root user:
+      1. post_ssh_setup        : All basic steps to be performed after you SSH in the Pi
+      2. mconf_setup           : Auto mconf setup (include_mconf_setup: true)

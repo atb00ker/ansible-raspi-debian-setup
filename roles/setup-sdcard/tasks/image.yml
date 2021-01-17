@@ -33,4 +33,3 @@
   become_user: root
   shell: "xzcat {{ image_loc }} | dd of={{ sdcard }} bs=64k oflag=dsync status=progress"
   tags: ["install-img", "install-all"]
-
